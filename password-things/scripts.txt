@@ -1,0 +1,4 @@
+https://github.com/Guac0/uabtc
+Dylan is linux Josh is windows Andrew is mostly setup for testing on vms
+windows - https://github.com/Guac0/uabtc/blob/main/Josh/Password%20Changers/PasswordChanger4.ps1
+linux - https://github.com/Guac0/uabtc/blob/main/Dylan/password_changers/basic_password_script.sh 
