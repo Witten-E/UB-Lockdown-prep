@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# Backup Tool
+#
+# Usage:
+#   ./backup_tool.sh [options]
+#
+# Options:
+#   -c               Set up a cron job to run this script automatically
+#   -d <dirs>        Comma-separated list of directories to back up (default: /etc,/var/log,/home,/opt)
+#   -t <schedule>    Cron schedule string (e.g., "0 2 * * *")
+#   -r <file>        Restore from a specified backup archive (.tar.gz)
+#
+# Examples:
+#   ./backup_tool.sh -c -d "/etc,/opt" -t "0 * * * *"
+#   ./backup_tool.sh -r /var/backups/blue-team/backup_2025-04-01_14-35-08.tar.gz
+
+
 # === COLORS ===
 red="\033[0;31m"
 green="\033[0;32m"
