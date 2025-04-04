@@ -1,0 +1,27 @@
+# https://man.openbsd.org/pf.conf
+
+lan = "lan"
+wan = "wan"
+dmz = "dmz"
+
+# table of blocked ips. persists even if pf.conf is changed
+table <blocked> persist
+
+# skip loopback
+set skip on lo0
+
+# block all by default
+block all
+
+# block bad ips immediately
+block in quick from <blocked>
+
+# allow connections out
+pass out on egress proto { tcp udp icmp } all modulate state
+
+# allow ssh connections to given ips
+# log initial packet to see initiator
+# pass in log on egress proto tcp to {<ips>} port ssh
+
+# allow connections to ports
+# pass in on egress proto <protocol> from any to (<interface>) port <port>
