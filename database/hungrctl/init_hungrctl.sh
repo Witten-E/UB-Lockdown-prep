@@ -114,7 +114,7 @@ Description=Run HungrCTL every minute
 
 [Timer]
 OnBootSec=0sec
-OnUnitActiveSec=1min
+OnUnitActiveSec=30sec
 AccuracySec=1sec
 RandomizedDelaySec=3
 
@@ -161,7 +161,7 @@ Description=Run HungrCTL watchdog every 1 minute
 
 [Timer]
 OnBootSec=30sec
-OnUnitActiveSec=1min
+OnUnitActiveSec=30sec
 AccuracySec=1sec
 RandomizedDelaySec=3
 
