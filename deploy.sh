@@ -18,7 +18,7 @@ if ! command -v ansible-playbook &> /dev/null; then
     case "$distro" in
         ubuntu|debian)
             apt-get update -y &>/dev/null
-            if apt-get install -y python3 python3-pip ansible &>/dev/null; then
+            if apt-get install -y python3 python3-pip ansible sshpass &>/dev/null; then
                 echo "[V] Installed Ansible via apt"
             else
                 echo "[!] apt install failed — trying pip fallback"
