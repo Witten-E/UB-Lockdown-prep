@@ -87,6 +87,7 @@ if [ -z "$team" ]; then
 fi
 
 cp "$inventory" "$inventory.bak"
+trap 'mv "$inventory.bak" "$inventory"; echo "[*] Cleaned up inventory"; exit' INT TERM
 sed -i "s/10\.X\./10\.$team\./g" "$inventory"
 
 
