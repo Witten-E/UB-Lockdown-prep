@@ -77,18 +77,8 @@ if ! command -v ansible-playbook &> /dev/null; then
     esac
 fi
 
-
-# === Prompt for team number and replace X with it ===
-read -p "Enter your team number: " team
-
-if [ -z "$team" ]; then
-    echo "[!] No team number entered. Aborting."
-    exit 1
-fi
-
 cp "$inventory" "$inventory.bak"
 trap 'mv "$inventory.bak" "$inventory"; echo "[*] Cleaned up inventory"; exit' INT TERM
-sed -i "s/10\.X\./10\.$team\./g" "$inventory"
 
 
 
