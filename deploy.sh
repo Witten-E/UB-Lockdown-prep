@@ -32,7 +32,7 @@ if ! command -v ansible-playbook &> /dev/null; then
         rhel|centos|fedora)
             if command -v dnf &>/dev/null; then
                 dnf update -y &>/dev/null
-                dnf install -y python3 python3-pip ansible &>/dev/null || {
+                dnf install -y python3 python3-pip ansible sshpass &>/dev/null || {
                     echo "[!] dnf install failed — trying pip fallback"
                     pip3 install --user ansible || {
                         echo "[X] pip fallback failed"
@@ -42,7 +42,7 @@ if ! command -v ansible-playbook &> /dev/null; then
                 }
             else
                 yum update -y &>/dev/null
-                yum install -y python3 python3-pip ansible &>/dev/null || {
+                yum install -y python3 python3-pip ansible sshpass &>/dev/null || {
                     echo "[!] yum install failed — trying pip fallback"
                     pip3 install --user ansible || {
                         echo "[X] pip fallback failed"
@@ -54,7 +54,7 @@ if ! command -v ansible-playbook &> /dev/null; then
         ;;
         arch|manjaro)
             pacman -Syu --noconfirm &>/dev/null
-            if ! pacman -S --noconfirm ansible python-pip &>/dev/null; then
+            if ! pacman -S --noconfirm ansible python-pip sshpass &>/dev/null; then
                 echo "[!] pacman install failed — trying pip fallback"
                 pip3 install --user ansible || {
                     echo "[X] pip fallback failed"
