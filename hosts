@@ -1,0 +1,10 @@
+[targets]
+backup_server ansible_host=10.X.2.2
+ubuntu_ftp ansible_host=10.X.2.4
+dev_server ansible_host=10.X.2.10
+ubuntu1 ansible_host=10.X.1.10
+web_app ansible_host=10.X.1.30
+
+[targets:vars]
+ansible_user=sysadmin
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

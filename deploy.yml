@@ -1,0 +1,17 @@
+- name: Deploy repo to boxes
+  hosts: targets
+  become: true
+  tasks:
+    - name: Ensure directories exist
+      file:
+        path: /opt/test2
+        state: directory
+        mode: '0755'
+    
+    - name: Copy contents
+      copy:
+        src: ./test2/
+        dest: /opt/test2/
+        owner: root
+        group: root
+        mode: preserve
