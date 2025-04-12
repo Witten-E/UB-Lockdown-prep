@@ -1,0 +1,334 @@
+#!/bin/bash
+
+# ===== Function: run_check =====
+run_check() {
+    local script_path="$1"
+    local label
+    label="$(basename "$script_path" .sh)"
+    local temp_log="$TMP_DIR/${label}_check.log"
+    local summary_log="$SUMMARY_DIR/${label}.summary"
+
+    log_info "[RUNNING] $label--------------------" >> "$RUN_LOG"
+    if [ "$MODE" = "baseline" ]; then
+        log_info "[RUNNING] $label--------------------"
+    fi
+
+    # Run the check and capture output to a temp log
+    # In baseline mode, allow interactive input
+    if [ "$MODE" = "baseline" ]; then
+        "$script_path" "$MODE" | tee "$temp_log"
+    else
+        "$script_path" "$MODE" > "$temp_log" 2>&1
+    fi
+
+    # Append to persistent logs
+    cat "$temp_log" >> "$RUN_LOG"
+
+    log_info "[DONE] $label--------------------" >> "$RUN_LOG"
+    if [ "$MODE" = "baseline" ]; then
+        log_info "[DONE] $label--------------------"
+        echo
+    fi
+
+    # Append summary to full summary
+    if [ -s "$summary_log" ]; then
+        echo >> "$FULL_SUMMARY"
+        cat "$summary_log" >> "$FULL_SUMMARY"
+        echo >> "$FULL_SUMMARY"
+        echo "=============================================================" >> "$FULL_SUMMARY"
+        echo >> "$FULL_SUMMARY"
+    fi
+
+    if [ "$DISCORD" = true ]; then
+        local summary_content
+        summary_content="$(cat "$summary_log")"
+        local base="${label#check_}"
+        local upper_base="${base^^}"
+        local var_name="${upper_base}_WEBHOOK_URL"
+        local webhook="${!var_name}"
+
+        if [[ -n "$webhook" && -s "$summary_log" ]]; then
+            send_discord_alert "$summary_content" "${upper_base} Alert on $(hostname) at $(timestamp)" "$webhook"
+        fi
+        echo >> "$RUN_LOG"
+    fi
+}
+
+# ===== Function: run_all_checks =====
+run_all_checks() {
+    run_check "$ROOT_DIR/service_checks/check_firewall.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_config.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_services.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_coreutils.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_login_package.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_passwd_package.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_credentials.sh" "$MODE"
+    run_check "$ROOT_DIR/service_checks/check_cron.sh" "$MODE"
+}
+
+# ===== Function: run_specific_check =====
+run_specific_checks() {
+    [ "$firewall_check" = true ] && run_check "$ROOT_DIR/service_checks/check_firewall.sh" "$MODE"
+    [ "$config_check" = true ] && run_check "$ROOT_DIR/service_checks/check_config.sh" "$MODE"
+    [ "$coreutils_check" = true ] && run_check "$ROOT_DIR/service_checks/check_coreutils.sh" "$MODE"
+    [ "$login_check" = true ] && run_check "$ROOT_DIR/service_checks/check_login_package.sh" "$MODE"
+    [ "$passwd_check" = true ] && run_check "$ROOT_DIR/service_checks/check_passwd_package.sh" "$MODE"
+    [ "$credentials_check" = true ] && run_check "$ROOT_DIR/service_checks/check_credentials.sh" "$MODE"
+    [ "$services_check" = true ] && run_check "$ROOT_DIR/service_checks/check_services.sh" "$MODE"
+    [ "$cron_check" = true ] && run_check "$ROOT_DIR/service_checks/check_cron.sh" "$MODE"
+}
+
+# ===== Function: show_log_summary =====
+show_log_summary() {
+    (cat "$RUN_LOG"; echo -e "${green}Done! The full log can be viewed at: ${yellow}$FULL_LOG${reset}") | less -R
+}
+
+# ===== Function: show_help =====
+show_help() {
+    echo "Usage: $0 [OPTIONS] [check|baseline]"
+    echo
+    echo "This script runs a series of checks on the system to ensure it's running optimally."
+    echo "Provided no arguments, it will run all checks in check mode."
+    echo
+    echo "Options:"
+    echo "  -a, --all     Run all checks"
+    echo "  -h, --help    Show this help message"
+    echo "  -c, --config  Run config check"
+    echo "  -d, --credentials Run credentials check"
+    echo "  -f, --firewall Run firewall check"
+    echo "  -l, --login   Run login package check"
+    echo "  -m, --mode <check|baseline>    Explicitly set mode to check or baseline"
+    echo "  -n, --no-summary Don't show the summary"
+    echo "  -o, --cron    Run cron check"
+    echo "  -p, --passwd  Run passwd package check"
+    echo "  -r, --run <command>     Run a command before running checks. Useful for updating baseline files."
+    echo "  -s, --services Run services check"
+    echo "  -u, --coreutils Run coreutils check"
+    echo
+    echo "Modes:"
+    echo "  check         Run service and system checks (default)"
+    echo "  baseline      Create or update baseline files"
+    echo
+    echo "Examples:"
+    echo "  $0"
+    echo "  $0 --all"
+    echo "  $0 --config"
+    echo "  $0 -f"
+    echo "  $0 baseline"
+    echo "  $0 -m baseline -f"
+    echo "  $0 -fr 'nft add rule inet filter input tcp dport 80 accept' baseline"
+    echo "  $0 -c --run 'echo \"test\" > /etc/ssh/sshd_config' --mode baseline"
+}
+
+# ===== Source unified environment setup =====
+source "$(dirname "$(realpath "$0")")/lib/env.sh"
+
+# ===== Ensure run as root =====
+if [ "$EUID" -ne 0 ]; then
+	log_fail "This tool must be run as root. Exiting..."
+	exit 1
+fi
+
+# ===== Default Mode =====
+MODE="check"
+
+# ===== Log Files =====
+FULL_LOG="$LOG_DIR/service_check_full.log"
+RUN_LOG="$LOG_DIR/service_check.log"
+FULL_SUMMARY="$SUMMARY_DIR/service_check_full.summary"
+
+# Clear the single-run log
+> "$RUN_LOG"
+
+# ===== Log Header =====
+{
+    echo "==================== SERVICE UPTIME CHECK ===================="
+    echo "Timestamp: $(timestamp)"
+    echo "Hostname: $(hostname)"
+    echo "Mode: $MODE"
+    echo "============================================================="
+    echo
+} >> "$RUN_LOG"
+
+# ===== Check for getopt installation =====
+if ! command -v getopt &> /dev/null; then
+    case "$DISTRO" in
+        ubuntu|debian)
+            apt-get install -y getopt
+            ;;
+        rhel|centos|fedora)
+            dnf install -y getopt
+            ;;
+        arch|manjaro)
+            pacman -S --noconfirm getopt
+            ;;
+    esac
+fi
+
+# ===== Parse command line arguments =====
+
+# First, check if the last argument is a mode
+if [ $# -gt 0 ]; then
+    case "${!#}" in
+        check|baseline)
+            MODE="${!#}"
+            # Remove the mode from arguments
+            set -- "${@:1:$#-1}"
+            ;;
+    esac
+fi
+
+# Now parse the remaining options
+OPTS=$(getopt -o "acdfhlm:nopr:su" --long "all,firewall,config,services,coreutils,login,passwd,help,mode:,no-summary,credentials,cron,run:" -n "$0" -- "$@")
+if [ $? -ne 0 ]; then
+    show_help
+    exit 1
+fi
+
+eval set -- "$OPTS"
+
+# Default to running all checks if no specific check is specified
+run_all=true
+
+# Default to showing the summary if no specific check is specified
+summary=true
+
+while true; do
+    case "$1" in
+        -a|--all)
+            run_all=true
+            shift
+            ;;
+        -c|--config)
+            run_all=false
+            config_check=true
+            shift
+            ;;
+        -d|--credentials)
+            run_all=false
+            credentials_check=true
+            shift
+            ;;
+        -f|--firewall)
+            run_all=false
+            firewall_check=true
+            shift
+            ;;
+        -l|--login)
+            run_all=false
+            login_check=true
+            shift
+            ;;
+        -m|--mode)
+            MODE="$2"
+            shift 2
+            ;;
+        -n|--no-summary)
+            summary=false
+            shift
+            ;;
+        -o|--cron)
+            run_all=false
+            cron_check=true
+            shift
+            ;;
+        -p|--passwd)
+            run_all=false
+            passwd_check=true
+            shift
+            ;;
+        -r|--run)
+            cmd="$2"
+            shift 2
+            ;;
+        -s|--services)
+            run_all=false
+            services_check=true
+            shift
+            ;;
+        -u|--coreutils)
+            run_all=false
+            coreutils_check=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            log_fail "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+# ===== Baseline Mode =====
+if [ "$MODE" = "baseline" ]; then
+    # Ensure baseline directory exists
+    if [ ! -d "$BASELINE_DIR" ]; then
+        log_fail "Baseline directory $BASELINE_DIR does not exist. Please run init_hungrctl.sh first."
+        exit 1
+    fi
+
+    # Only try to modify attributes if files exist
+    if [ -n "$(find "$BASELINE_DIR" -type f)" ]; then
+        if ! find "$BASELINE_DIR" -type f -exec chattr -i {} \; 2>/dev/null; then
+            log_warn "Could not remove immutable attributes from baseline files. Continuing anyway..."
+        fi
+    fi
+
+    # Run custom command if provided
+    if [ -n "$cmd" ]; then
+        log_info "Running custom command: $cmd"
+        if ! eval "$cmd"; then
+            log_fail "Custom command failed with exit code $?"
+            exit 1
+        fi
+    fi
+
+    # Run checks
+    if [ "$run_all" = true ]; then
+        run_all_checks "$MODE"
+    else
+        run_specific_checks "$MODE"
+    fi
+
+    # Only try to add attributes if files exist
+    if [ -n "$(find "$BASELINE_DIR" -type f)" ]; then
+        if ! find "$BASELINE_DIR" -type f -exec chattr +i {} \; 2>/dev/null; then
+            log_warn "Could not add immutable attributes to baseline files. Continuing anyway..."
+        fi
+    fi
+fi
+
+# ===== Check Mode =====
+if [ "$MODE" = "check" ]; then
+    if [ -n "$cmd" ]; then
+        "$cmd"
+    fi
+    if [ "$run_all" = true ]; then
+        run_all_checks "$MODE"
+    else
+        run_specific_checks "$MODE"
+    fi
+fi
+
+# Append run log to full log
+cat "$RUN_LOG" >> "$FULL_LOG"
+
+# ===== Final Discord Summary =====
+if [ "$DISCORD" = true ]; then
+    send_discord_alert "$(cat "$RUN_LOG")" \
+        "SERVICE UPTIME SUMMARY on $(hostname) at $(timestamp)" \
+        "$LOGGING_WEBHOOK_URL"
+fi
+
+# ===== Show Output by Default =====
+if [ "$summary" = true ]; then
+    show_log_summary
+fi

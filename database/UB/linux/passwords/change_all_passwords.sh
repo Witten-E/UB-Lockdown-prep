@@ -3,14 +3,46 @@
 # Usage: ./exclude_users_password_script.sh <users to exclude from password change separated by spaces>
 
 # Array of users to exclude from lock
-excluded_from_lock=("goon1" "goon2" "hacker" "buyer" "lockpick" "safecracker" "root" "blackteam" "sync")
+excluded_from_lock=("sockpuppet" "puppetmaster" "blackteam")
 
-# Array of users to exclude from pw change provided by command args
-excluded_pw_users=("$@")
+
 
 # Array of users to include in lock function and copies to array for pw function
 mapfile -t users_to_lock < <(awk -F: '$7 !~ /(nologin|false)/ {print $1}' /etc/passwd)
 pw_users=("${users_to_lock[@]}")
+
+# ===== Parse flags =====
+OPTS=$(getopt -o "hlp:" --long "help,headless,password:" -n "$0" -- "$@")
+
+eval set -- "$OPTS"
+
+headless=false
+
+while true; do
+    case "$1" in
+        -h|--help)
+            echo "Usage: $0 [-l|--headless] [-p|--password <password>] [users to exclude from password change]"
+            exit 0
+        ;;
+        -l|--headless)
+            headless=true
+            shift
+        ;;
+        -p|--password)
+            input_password="$2"
+            shift 2
+        ;;
+        --)
+            shift
+            break
+        ;;
+        *)
+        ;;
+    esac
+done
+
+# Array of users to exclude from pw change provided by command args
+excluded_pw_users=("$@")
 
 # Helper function to check if a user is in the exclusion list
 is_excluded() {
@@ -85,11 +117,11 @@ confirm_changes() {
     for user in "${users_to_lock[@]}"; do
         echo "- $user"
     done
-
+    
     read -r -p "Do you want to proceed? (y/n): " confirm
     if [[ "$confirm" != "y" ]]; then
         echo "Changes cancelled. Exiting..."
-        exit 0
+        exit 10
     fi
 }
 
@@ -101,21 +133,30 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-read -rsp "Enter the new password: " password
-echo
-read -rsp "Confirm the new password: " password_confirm
-echo
-
-if [ "$password" != "$password_confirm" ]; then
-    echo "Passwords do not match! Exiting..."
-    exit 1
+if [ "$headless" = true ]; then
+    if [ -z "$input_password" ]; then
+        echo "Headless mode requires a password passed with -p or --password"
+        exit 1
+    fi
+    password="$input_password"
+else
+    read -rsp "Enter the new password: " password
+    echo
+    read -rsp "Confirm the new password: " password_confirm
+    echo
+    
+    if [ "$password" != "$password_confirm" ]; then
+        echo "Passwords do not match! Exiting..."
+        exit 1
+    fi
 fi
 
 exclude_from_pw_change
 exclude_from_lock
 
-confirm_changes
+if [ "$headless" = false ]; then
+    confirm_changes
+fi
 
 change_passwords "$password"
 lock_users
-

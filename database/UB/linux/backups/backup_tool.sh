@@ -10,6 +10,7 @@
 #   -d <dirs>        Comma-separated list of directories to back up (default: /etc,/var/log,/home,/opt)
 #   -t <schedule>    Cron schedule string (e.g., "0 2 * * *")
 #   -r <file>        Restore from a specified backup archive (.tar.gz)
+#   -h               Show this help message and exit
 #
 # Examples:
 #   ./backup_tool.sh -c -d "/etc,/opt" -t "0 * * * *"
@@ -30,7 +31,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # === DEFAULT CONFIGURATION ===
+
 default_dirs="/etc,/var/log,/home,/opt"
+if [ -d "/var/www" ]; then
+    default_dirs="${default_dirs},/var/www"
+fi
 backup_dir="/var/backups/blue-team"
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
 backup_name="backup_$timestamp.tar.gz"
@@ -111,8 +116,11 @@ add_cron_job() {
 
 # === USAGE FUNCTION ===
 usage() {
-    echo -e "${yellow}Usage:${reset} $0 [options]\n"
+    echo -e "${yellow}Usage:${reset} $0 [options]
+"
+    
     echo -e "${yellow}Options:${reset}"
+    echo -e "  ${green}-h${reset}            Show this help message"
     echo -e "  ${green}-c${reset}            Set up a cron job to run this script"
     echo -e "  ${green}-d <dirs>${reset}     Comma-separated list of directories to back up"
     echo -e "  ${green}-t <schedule>${reset} Cron schedule string (e.g., '0 2 * * *')"
@@ -124,8 +132,9 @@ usage() {
 }
 
 # === PARSE OPTIONS ===
-while getopts "cd:t:r:" opt; do
+while getopts "cd:t:r:h" opt; do
     case $opt in
+        h) usage ;;
         c) setup_cron=true ;;
         d) custom_dirs="$OPTARG" ;;
         t) cron_schedule="$OPTARG" ;;
@@ -135,6 +144,7 @@ while getopts "cd:t:r:" opt; do
 done
 
 # === MAIN EXECUTION ===
+
 setup_backup_dir
 
 if $restore_mode; then

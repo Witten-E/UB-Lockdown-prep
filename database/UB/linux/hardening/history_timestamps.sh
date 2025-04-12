@@ -50,10 +50,10 @@ fi
 
 modify_bashrc() {
     local bashrc="$1"
-
+    
     # Backup .bashrc
     cp "$bashrc" "${bashrc}.bak"
-
+    
     if $revert; then
         # Remove lines
         sed -i "/HISTTIMEFORMAT/d" "$bashrc"
