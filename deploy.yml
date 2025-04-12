@@ -2,16 +2,18 @@
   hosts: targets
   become: true
   tasks:
-    - name: Ensure directories exist
+    - name: Ensure /opt/database exists
       file:
-        path: /opt/test2
+        path: /opt/database
         state: directory
         mode: '0755'
     
-    - name: Copy contents
+    - name: Copy contents of database to /opt/test2
       copy:
-        src: ./test2/
-        dest: /opt/test2/
+        src: ./database/
+        dest: /opt/database/
         owner: root
         group: root
         mode: preserve
+    
+    - name: 
